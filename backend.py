@@ -24,6 +24,10 @@ class ChatRequest(BaseModel):
     lang: str
     code: str
 
+class ChatRegen(BaseModel):
+    error: str
+    code: str
+
 # Add CORS middleware
 origins = [
     "http://localhost:3000",  # React app running on localhost
@@ -40,7 +44,7 @@ app.add_middleware(
 )
 
 def extract_code_from_markdown(markdown_text):
-    pattern = r'```([\s\S]*?)```'
+    pattern = r'```(?:\w+)\n([\s\S]*?)```'
     
     matches = re.findall(pattern, markdown_text)
     
@@ -51,8 +55,20 @@ def extract_code_from_markdown(markdown_text):
 @app.post("/chat/")
 def chat(request: ChatRequest):
     try:
-        print("processing",request.user)
-        prompt = f"Without any text give {request.user} in {request.lang} and make changes in {request.code}"
+        print("processing",request.user,"code is",request.code,"language is",request.lang)
+        prompt = f"In this {request.code} give {request.user} in {request.lang}"
+        query_result = str(chatbot.query(prompt, web_search=True))
+        print("done",query_result)
+        query_result=extract_code_from_markdown(query_result)
+        return {"response": query_result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error querying chatbot: {e}")
+    
+@app.post("/regen/")
+def chat(request: ChatRegen):
+    try:
+        print("processing",request.error,"code is",request.code)
+        prompt = f"Fix the error {request.error} in this code {request.code}"
         query_result = str(chatbot.query(prompt, web_search=True))
         print("done",query_result)
         query_result=extract_code_from_markdown(query_result)
